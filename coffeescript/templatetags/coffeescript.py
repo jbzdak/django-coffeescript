@@ -1,9 +1,10 @@
+from django.contrib.staticfiles import finders
 from ..cache import get_cache_key, get_hexdigest, get_hashed_mtime
 from ..settings import COFFEESCRIPT_EXECUTABLE, COFFEESCRIPT_USE_CACHE,\
     COFFEESCRIPT_CACHE_TIMEOUT, COFFEESCRIPT_OUTPUT_DIR, POSIX_COMPATIBLE
 from django.conf import settings
 from django.core.cache import cache
-from django.template.base import Library, Node
+from django.template.base import Library, Node, TemplateSyntaxError
 from os.path import join, dirname, exists, basename
 import logging
 import shlex
@@ -64,21 +65,20 @@ def coffeescript_paths(path):
     # while developing it is more confortable
     # searching for the coffeescripts rather then 
     # doing collectstatics all the time
+
     if settings.DEBUG:
-        for sfdir in settings.STATICFILES_DIRS:
-            prefix = None
-            if isinstance(sfdir, (tuple, list)):
-                prefix, sfdir = sfdir
-            if prefix:
-                if not path.startswith(prefix):
-                    continue
-                input_file = join(sfdir, path[len(prefix):].lstrip(os.sep))
-            else:
-                input_file = join(sfdir, path)
-            if exists(input_file):
-                output_dir = join(root, COFFEESCRIPT_OUTPUT_DIR, dirname(path))
-                file_name = basename(path)
-                return input_file, file_name, output_dir
+
+        input_file = finders.find(path)
+
+        if input_file is None:
+            raise TemplateSyntaxError("Cant find staticfile named: {}".format(path))
+
+
+        file_name = os.path.split(path)[1]
+
+        output_dir = join(settings.STATICFILES_DIRS[0], COFFEESCRIPT_OUTPUT_DIR, dirname(path))
+
+        return input_file, file_name, output_dir
     
     full_path = os.path.join(root, path)
     file_name = os.path.split(path)[-1]
